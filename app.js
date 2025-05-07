@@ -35,27 +35,27 @@ app.get('/get-links', async (req, res) => {
     console.log("HTML страницы после загрузки:");
     console.log(initialContent);
 
-    // ✅ Попытка кликнуть по ссылке "Stay logged out" или "Rester déconnecté"
+    // ✅ Попытка кликнуть по кнопке "Stay logged out" или "Rester déconnecté"
     try {
       await page.waitForFunction(() => {
-        return [...document.querySelectorAll('a')].some(el => {
+        return [...document.querySelectorAll('button')].some(el => {
           const text = el.innerText.trim().toLowerCase();
           return text === 'stay logged out' || text === 'rester déconnecté';
         });
       }, { timeout: 5000 }); // Увеличиваем тайм-аут
 
-      await page.$$eval('a', links => {
-        const target = links.find(link => {
-          const text = link.innerText.trim().toLowerCase();
+      await page.$$eval('button', buttons => {
+        const target = buttons.find(button => {
+          const text = button.innerText.trim().toLowerCase();
           return text === 'stay logged out' || text === 'rester déconnecté';
         });
         if (target) target.click();
       });
 
-      console.log("Pop-up détecté. Lien 'Stay logged out' cliqué.");
+      console.log("Pop-up détecté. Bouton 'Stay logged out' ou 'Rester déconnecté' cliqué.");
       await new Promise(r => setTimeout(r, 2000));
     } catch (err) {
-      console.log("Aucun lien 'Stay logged out' / 'Rester déconnecté' détecté dans le délai imparti.");
+      console.log("Aucun bouton 'Stay logged out' / 'Rester déconnecté' détecté dans le délai imparti.");
     }
 
     // 📝 Ожидание поля ввода и ввод запроса
