@@ -27,7 +27,9 @@ app.get('/get-links', async (req, res) => {
   const page = await browser.newPage();
 
   try {
+    console.log("Начинаем загрузку страницы...");
     await page.goto('https://chatgpt.com/chat', { waitUntil: 'domcontentloaded' });
+    console.log("Страница загружена.");
 
     // ✅ Попытка кликнуть по ссылке "Stay logged out" или "Rester déconnecté"
     try {
@@ -54,6 +56,7 @@ app.get('/get-links', async (req, res) => {
 
     // 📝 Ожидание поля ввода и ввод запроса
     try {
+      console.log("Ожидание элемента #prompt-textarea...");
       await page.waitForSelector('#prompt-textarea', { timeout: 5000 }); // Увеличим тайм-аут до 5 секунд
       console.log("Champ de texte trouvé.");
     } catch (err) {
