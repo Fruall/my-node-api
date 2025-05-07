@@ -18,7 +18,7 @@ app.get('/get-links', async (req, res) => {
   }
 
   const browser = await puppeteer.launch({
-    headless: true,
+    headless: false,
     userDataDir: './user_data',
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--lang=fr-FR'],
     defaultViewport: null
