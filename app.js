@@ -36,7 +36,7 @@ app.get('/get-links', async (req, res) => {
           const text = el.innerText.trim().toLowerCase();
           return text === 'stay logged out' || text === 'rester déconnecté';
         });
-      }, { timeout: 2000 });
+      }, { timeout: 5000 }); // Увеличим тайм-аут до 5 секунд
 
       await page.$$eval('a', links => {
         const target = links.find(link => {
@@ -53,7 +53,12 @@ app.get('/get-links', async (req, res) => {
     }
 
     // 📝 Ожидание поля ввода и ввод запроса
-    await page.waitForSelector('#prompt-textarea', { timeout: 1000 });
+    await page.waitForSelector('#prompt-textarea', { timeout: 5000 }); // Увеличим тайм-аут до 5 секунд
+
+    // Выводим код страницы в консоль для диагностики
+    const pageContent = await page.content();
+    console.log("HTML страницы получен:");
+    console.log(pageContent); // Выводим код страницы
 
     // Вводим запрос из параметра query
     await page.focus('#prompt-textarea');
@@ -92,7 +97,7 @@ app.get('/get-links', async (req, res) => {
     console.error("Ошибка:", err.message);
     const content = await page.content();
     console.log("Content HTML page:");
-    console.log(content);
+    console.log(content); // Выводим код страницы при ошибке
     await page.screenshot({ path: 'error_page.png' });
 
     res.status(500).json({ error: 'Failed to fetch the links', details: err.message });
