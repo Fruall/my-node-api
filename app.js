@@ -57,7 +57,7 @@ app.get('/get-links', async (req, res) => {
     // 📝 Ожидание поля ввода и ввод запроса
     try {
       console.log("Ожидание элемента #prompt-textarea...");
-      await page.waitForSelector('#prompt-textarea', { timeout: 5000 }); // Увеличим тайм-аут до 5 секунд
+      await page.waitForSelector('#prompt-textarea', { timeout: 3333 }); // Увеличим тайм-аут до 5 секунд
       console.log("Champ de texte trouvé.");
     } catch (err) {
       console.error("Échec de la recherche du champ de texte:", err.message);
