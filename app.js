@@ -29,27 +29,27 @@ app.get('/get-links', async (req, res) => {
   try {
     await page.goto('https://chatgpt.com/chat', { waitUntil: 'domcontentloaded' });
 
-    // ✅ Попытка кликнуть по кнопке "Stay logged out" или "Rester déconnecté"
+    // ✅ Попытка кликнуть по ссылке "Stay logged out" или "Rester déconnecté"
     try {
       await page.waitForFunction(() => {
-        return [...document.querySelectorAll('button')].some(el => {
+        return [...document.querySelectorAll('a')].some(el => {
           const text = el.innerText.trim().toLowerCase();
           return text === 'stay logged out' || text === 'rester déconnecté';
         });
       }, { timeout: 2000 });
 
-      await page.$$eval('button', buttons => {
-        const target = buttons.find(btn => {
-          const text = btn.innerText.trim().toLowerCase();
+      await page.$$eval('a', links => {
+        const target = links.find(link => {
+          const text = link.innerText.trim().toLowerCase();
           return text === 'stay logged out' || text === 'rester déconnecté';
         });
         if (target) target.click();
       });
 
-      console.log("Pop-up détecté. Bouton 'Stay logged out' cliqué.");
+      console.log("Pop-up détecté. Lien 'Stay logged out' cliqué.");
       await new Promise(r => setTimeout(r, 2000));
     } catch (err) {
-      console.log("Aucun bouton 'Stay logged out' / 'Rester déconnecté' détecté dans le délai imparti.");
+      console.log("Aucun lien 'Stay logged out' / 'Rester déconnecté' détecté dans le délai imparti.");
     }
 
     // 📝 Ожидание поля ввода и ввод запроса
