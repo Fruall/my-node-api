@@ -38,7 +38,7 @@ app.get('/get-links', async (req, res) => {
           const text = el.innerText.trim().toLowerCase();
           return text === 'stay logged out' || text === 'rester déconnecté';
         });
-      }, { timeout: 5000 }); // Увеличим тайм-аут до 5 секунд
+      }, { timeout: 3333 }); // Увеличим тайм-аут до 5 секунд
 
       await page.$$eval('a', links => {
         const target = links.find(link => {
