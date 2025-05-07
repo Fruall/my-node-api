@@ -53,12 +53,21 @@ app.get('/get-links', async (req, res) => {
     }
 
     // 📝 Ожидание поля ввода и ввод запроса
-    await page.waitForSelector('#prompt-textarea', { timeout: 5000 }); // Увеличим тайм-аут до 5 секунд
+    try {
+      await page.waitForSelector('#prompt-textarea', { timeout: 5000 }); // Увеличим тайм-аут до 5 секунд
+      console.log("Champ de texte trouvé.");
+    } catch (err) {
+      console.error("Échec de la recherche du champ de texte:", err.message);
+      const pageContent = await page.content();
+      console.log("HTML de la page au moment de l'erreur :");
+      console.log(pageContent); // Выводим код страницы при ошибке
+      return res.status(500).json({ error: 'Failed to find #prompt-textarea', details: err.message });
+    }
 
-    // Выводим код страницы в консоль для диагностики
+    // Выводим код страницы
     const pageContent = await page.content();
     console.log("HTML страницы получен:");
-    console.log(pageContent); // Выводим код страницы
+    console.log(pageContent);
 
     // Вводим запрос из параметра query
     await page.focus('#prompt-textarea');
