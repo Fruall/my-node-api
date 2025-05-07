@@ -18,7 +18,7 @@ app.get('/get-links', async (req, res) => {
   }
 
   const browser = await puppeteer.launch({
-    headless: false,
+    headless: false,  // Установите headless в false, чтобы видеть браузер
     userDataDir: './user_data',
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--lang=fr-FR'],
     defaultViewport: null
@@ -29,7 +29,11 @@ app.get('/get-links', async (req, res) => {
   try {
     console.log("Начинаем загрузку страницы...");
     await page.goto('https://chatgpt.com/chat', { waitUntil: 'domcontentloaded' });
-    console.log("Страница загружена.");
+
+    // Логируем HTML страницы после загрузки
+    const initialContent = await page.content();
+    console.log("HTML страницы после загрузки:");
+    console.log(initialContent);
 
     // ✅ Попытка кликнуть по ссылке "Stay logged out" или "Rester déconnecté"
     try {
@@ -38,7 +42,7 @@ app.get('/get-links', async (req, res) => {
           const text = el.innerText.trim().toLowerCase();
           return text === 'stay logged out' || text === 'rester déconnecté';
         });
-      }, { timeout: 3333 }); // Увеличим тайм-аут до 5 секунд
+      }, { timeout: 5000 }); // Увеличиваем тайм-аут
 
       await page.$$eval('a', links => {
         const target = links.find(link => {
@@ -57,20 +61,20 @@ app.get('/get-links', async (req, res) => {
     // 📝 Ожидание поля ввода и ввод запроса
     try {
       console.log("Ожидание элемента #prompt-textarea...");
-      await page.waitForSelector('#prompt-textarea', { timeout: 3333 }); // Увеличим тайм-аут до 5 секунд
+      await page.waitForSelector('#prompt-textarea', { timeout: 5000 });
       console.log("Champ de texte trouvé.");
     } catch (err) {
-      console.error("Échec de la recherche du champ de texte:", err.message);
+      console.error("Ошибка при поиске #prompt-textarea:", err.message);
       const pageContent = await page.content();
-      console.log("HTML de la page au moment de l'erreur :");
+      console.log("HTML страницы после ошибки:");
       console.log(pageContent); // Выводим код страницы при ошибке
       return res.status(500).json({ error: 'Failed to find #prompt-textarea', details: err.message });
     }
 
-    // Выводим код страницы
-    const pageContent = await page.content();
-    console.log("HTML страницы получен:");
-    console.log(pageContent);
+    // Логируем HTML страницы после нахождения поля ввода
+    const pageContentAfterInput = await page.content();
+    console.log("HTML страницы после нахождения поля ввода:");
+    console.log(pageContentAfterInput);
 
     // Вводим запрос из параметра query
     await page.focus('#prompt-textarea');
@@ -108,8 +112,8 @@ app.get('/get-links', async (req, res) => {
   } catch (err) {
     console.error("Ошибка:", err.message);
     const content = await page.content();
-    console.log("Content HTML page:");
-    console.log(content); // Выводим код страницы при ошибке
+    console.log("HTML страницы при ошибке:");
+    console.log(content);  // Выводим код страницы при ошибке
     await page.screenshot({ path: 'error_page.png' });
 
     res.status(500).json({ error: 'Failed to fetch the links', details: err.message });
