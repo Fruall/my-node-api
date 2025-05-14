@@ -8,243 +8,262 @@ const app = express();
 const port = 3000;
 
 app.get('/get-links', async (req, res) => {
-  const { query } = req.query;
-  if (!query) {
-    return res.status(400).json({ error: 'Query parameter is required' });
-  }
+  const { query } = req.query;
+  if (!query) {
+    return res.status(400).json({ error: 'Query parameter is required' });
+  }
 
-  const browser = await puppeteer.launch({
-    headless: true,
-    userDataDir: './user_data',
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--lang=fr-FR'],
-    defaultViewport: null
-  });
+  let browser = null; // Объявляем browser здесь, чтобы он был доступен в finally блоке
 
-  const page = await browser.newPage();
+  try {
+    browser = await puppeteer.launch({
+      headless: true,
+      userDataDir: './user_data',
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--lang=fr-FR'],
+      defaultViewport: null
+    });
 
-  try {
-    console.log("⏳ Открытие ChatGPT...");
-    await page.goto('https://chatgpt.com/chat', { waitUntil: 'networkidle2' });
+    const page = await browser.newPage();
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    await page.screenshot({ path: 'initial_page.png' });
+    console.log("⏳ Открытие ChatGPT...");
+    await page.goto('https://chatgpt.com/chat', { waitUntil: 'networkidle2' });
 
-    console.log("🔍 Looking for 'Stay logged out' link in the modal popup...");
-    await page.screenshot({ path: 'login_modal.png' });
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    await page.screenshot({ path: 'initial_page.png' });
 
-    const pageContent = await page.content();
-    if (pageContent.includes('Thanks for trying ChatGPT')) {
-      console.log("✅ Found the ChatGPT login modal popup (based on text)");
-    }
+    console.log("🔍 Looking for 'Stay logged out' link in the modal popup...");
+    await page.screenshot({ path: 'login_modal.png' });
 
-    try {
-      await page.waitForSelector('[role="dialog"]', { timeout: 1000 });
-      console.log("✅ Modal detected (based on [role='dialog'])");
+    const pageContent = await page.content();
+    if (pageContent.includes('Thanks for trying ChatGPT')) {
+      console.log("✅ Found the ChatGPT login modal popup (based on text)");
+    }
 
-      const clickResult = await page.evaluate(() => {
-        const elementsToTry = [
-          ...Array.from(document.querySelectorAll('a, button')).filter(el =>
-            el.textContent.trim().toLowerCase().includes('stay logged out') ||
-            el.textContent.trim().toLowerCase().includes('rester déconnecté')
-          ),
-          document.querySelector('a.text-token-text-secondary.mt-5'),
-          document.querySelector('[data-testid="modal-no-auth-rate-limit"] a.underline')
-        ];
+    try {
+      await page.waitForSelector('[role="dialog"]', { timeout: 1000 });
+      console.log("✅ Modal detected (based on [role='dialog'])");
 
-        for (let i = 0; i < elementsToTry.length; i++) {
-          const element = elementsToTry[i];
-          if (element) {
-            console.log(`Found "Stay logged out" link/button with attempt ${i + 1}`);
-            element.click();
-            return { clicked: true, method: `attempt ${i + 1}` };
-          }
-        }
-        return { clicked: false };
-      });
+      const clickResult = await page.evaluate(() => {
+        const elementsToTry = [
+          ...Array.from(document.querySelectorAll('a, button')).filter(el =>
+            el.textContent.trim().toLowerCase().includes('stay logged out') ||
+            el.textContent.trim().toLowerCase().includes('rester déconnecté')
+          ),
+          document.querySelector('a.text-token-text-secondary.mt-5'),
+          document.querySelector('[data-testid="modal-no-auth-rate-limit"] a.underline')
+        ];
 
-      if (clickResult.clicked) {
-        console.log(`✅ Clicked 'Stay logged out' link using ${clickResult.method}`);
-      } else {
-        console.log("❌ Could not find 'Stay logged out' link via JavaScript evaluate attempts.");
-      }
-    } catch (modalErr) {
-      console.log("Modal not found or other error during modal handling:", modalErr.message);
-      console.log("Continuing without explicit modal dismissal.");
-    }
+        for (let i = 0; i < elementsToTry.length; i++) {
+          const element = elementsToTry[i];
+          if (element) {
+            console.log(`Found "Stay logged out" link/button with attempt ${i + 1}`);
+            element.click();
+            return { clicked: true, method: `attempt ${i + 1}` };
+          }
+        }
+        return { clicked: false };
+      });
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    await page.screenshot({ path: 'after_modal_interaction_attempt.png' });
+      if (clickResult.clicked) {
+        console.log(`✅ Clicked 'Stay logged out' link using ${clickResult.method}`);
+      } else {
+        console.log("❌ Could not find 'Stay logged out' link via JavaScript evaluate attempts.");
+      }
+    } catch (modalErr) {
+      console.log("Modal not found or other error during modal handling:", modalErr.message);
+      console.log("Continuing without explicit modal dismissal.");
+    }
 
-    const isModalStillThere = await page.evaluate(() => {
-        return !!document.querySelector('[data-testid="modal-no-auth-rate-limit"]') ||
-               !!document.querySelector('[role="dialog"]');
-    });
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    await page.screenshot({ path: 'after_modal_interaction_attempt.png' });
 
-    if (isModalStillThere) {
-        console.warn("⚠️ Modal might still be visible. Check screenshot 'after_modal_interaction_attempt.png'.");
-    }
+    const isModalStillThere = await page.evaluate(() => {
+        return !!document.querySelector('[data-testid="modal-no-auth-rate-limit"]') ||
+               !!document.querySelector('[role="dialog"]');
+    });
 
-    console.log("⌛ Waiting for input field...");
-    let inputFieldFound = false;
-    const inputSelectors = [
-        '#prompt-textarea',
-        'textarea[placeholder*="Message"]',
-        'textarea[data-id="root"]',
-        'textarea',
-        '[contenteditable="true"]'
-    ];
-    let finalInputSelector = null;
+    if (isModalStillThere) {
+        console.warn("⚠️ Modal might still be visible. Check screenshot 'after_modal_interaction_attempt.png'.");
+    }
 
-    for (const selector of inputSelectors) {
-        try {
-            await page.waitForSelector(selector, { visible: true, timeout: 1000 });
-            console.log(`✅ Found input field with selector: ${selector}`);
-            finalInputSelector = selector;
-            inputFieldFound = true;
-            break;
-        } catch (err) {
-            console.log(`❌ Selector "${selector}" not found or not visible.`);
-        }
-    }
+    console.log("⌛ Waiting for input field...");
+    let inputFieldFound = false;
+    const inputSelectors = [
+        '#prompt-textarea',
+        'textarea[placeholder*="Message"]',
+        'textarea[data-id="root"]',
+        'textarea',
+        '[contenteditable="true"]'
+    ];
+    let finalInputSelector = null;
 
-    if (!inputFieldFound) {
-        console.error("❌ Could not find any input field after multiple attempts.");
-        const pageElements = await page.evaluate(() => ({ // Для отладки
-            textareas: document.querySelectorAll('textarea').length,
-            inputs: document.querySelectorAll('input').length,
-            contentEditables: document.querySelectorAll('[contenteditable="true"]').length,
-            buttons: Array.from(document.querySelectorAll('button')).map(b => b.outerHTML.substring(0,150)), // Начало HTML кнопок
-            visibleText: Array.from(document.querySelectorAll('p, h1, h2, h3, h4, h5, span')).slice(0, 10).map(el => el.textContent.trim()).filter(Boolean)
-        }));
-        console.log("Page analysis for missing input:", JSON.stringify(pageElements, null, 2));
-        await page.screenshot({ path: 'input_field_not_found.png' });
-        throw new Error("Could not interact with ChatGPT interface - no input field found");
-    }
+    for (const selector of inputSelectors) {
+        try {
+            await page.waitForSelector(selector, { visible: true, timeout: 1000 });
+            console.log(`✅ Found input field with selector: ${selector}`);
+            finalInputSelector = selector;
+            inputFieldFound = true;
+            break;
+        } catch (err) {
+            console.log(`❌ Selector "${selector}" not found or not visible.`);
+        }
+    }
 
-    console.log(`Typing into: ${finalInputSelector}`);
-    await page.type(finalInputSelector, query, { delay: 50 });
+    if (!inputFieldFound) {
+        console.error("❌ Could not find any input field after multiple attempts.");
+        const pageElements = await page.evaluate(() => ({ // Для отладки
+            textareas: document.querySelectorAll('textarea').length,
+            inputs: document.querySelectorAll('input').length,
+            contentEditables: document.querySelectorAll('[contenteditable="true"]').length,
+            buttons: Array.from(document.querySelectorAll('button')).map(b => b.outerHTML.substring(0,150)), // Начало HTML кнопок
+            visibleText: Array.from(document.querySelectorAll('p, h1, h2, h3, h4, h5, span')).slice(0, 10).map(el => el.textContent.trim()).filter(Boolean)
+        }));
+        console.log("Page analysis for missing input:", JSON.stringify(pageElements, null, 2));
+        await page.screenshot({ path: 'input_field_not_found.png' });
+        throw new Error("Could not interact with ChatGPT interface - no input field found");
+    }
 
-    // --- НАЧАЛО ИЗМЕНЕННОГО БЛОКА ДЛЯ ОТПРАВКИ ---
+    console.log(`Typing into: ${finalInputSelector}`);
+    await page.type(finalInputSelector, query, { delay: 50 });
 
-    // Шаг 1: Опциональный клик по кнопке "Search"
-    let specificSearchButtonClicked = false;
-    console.log("🔍 (Опционально) Ищем специфическую кнопку 'Search'...");
-    const specificSearchButtonSelectors = [
-        'button[data-testid="composer-button-search"]',
-        'button[aria-label="Search"]'
-    ];
+    // --- НАЧАЛО БЛОКА ДЛЯ ОТПРАВКИ ---
 
-    for (const selector of specificSearchButtonSelectors) {
-        try {
-            const buttonElement = await page.waitForSelector(selector, { visible: true, timeout: 2000 });
-            if (buttonElement) {
-                await buttonElement.click();
-                console.log(`✅ (Опционально) Кликнули по кнопке 'Search' используя селектор: ${selector}`);
-                specificSearchButtonClicked = true;
-                await new Promise(resolve => setTimeout(resolve, 500)); // Пауза после клика
-                break;
-            }
-        } catch (err) {
-            console.log(`🟡 (Опционально) Кнопка 'Search' с селектором "${selector}" не найдена или не кликабельна.`);
-        }
-    }
+    // Шаг 1: Опциональный клик по кнопке "Search"
+    let specificSearchButtonClicked = false;
+    console.log("🔍 (Опционально) Ищем специфическую кнопку 'Search'...");
+    const specificSearchButtonSelectors = [
+        'button[data-testid="composer-button-search"]',
+        'button[aria-label="Search"]'
+    ];
 
-    if (specificSearchButtonClicked) {
-        console.log("ℹ️ Кнопка 'Search' была нажата. Теперь ищем основную кнопку отправки.");
-    } else {
-        console.log("ℹ️ Кнопка 'Search' не была нажата или не найдена. Ищем основную кнопку отправки.");
-    }
+    for (const selector of specificSearchButtonSelectors) {
+        try {
+            const buttonElement = await page.waitForSelector(selector, { visible: true, timeout: 2000 });
+            if (buttonElement) {
+                await buttonElement.click();
+                console.log(`✅ (Опционально) Кликнули по кнопке 'Search' используя селектор: ${selector}`);
+                specificSearchButtonClicked = true;
+                await new Promise(resolve => setTimeout(resolve, 500)); // Пауза после клика
+                break;
+            }
+        } catch (err) {
+            console.log(`🟡 (Опционально) Кнопка 'Search' с селектором "${selector}" не найдена или не кликабельна.`);
+        }
+    }
 
-    // Шаг 2: Обязательный клик по основной кнопке отправки или нажатие Enter
-    console.log("🔍 Ищем основную кнопку отправки ('Send prompt')...");
-    const mainSendButtonSelectors = [
-        'button#composer-submit-button',
-        'button[data-testid="send-button"]',
-        'button[aria-label="Send prompt"]',
-        'button[aria-label*="Send"]',
-        'button[type="submit"]'
-    ];
-    let mainSendButtonClicked = false;
+    if (specificSearchButtonClicked) {
+        console.log("ℹ️ Кнопка 'Search' была нажата. Теперь ищем основную кнопку отправки.");
+    } else {
+        console.log("ℹ️ Кнопка 'Search' не была нажата или не найдена. Ищем основную кнопку отправки.");
+    }
 
-    for (const selector of mainSendButtonSelectors) {
-        try {
-            const buttonElement = await page.waitForSelector(selector, { visible: true, timeout: 5000 });
-            if (buttonElement) {
-                await buttonElement.click();
-                console.log(`✅ Кликнули по основной кнопке отправки используя селектор: ${selector}`);
-                mainSendButtonClicked = true;
-                break;
-            }
-        } catch (err) {
-            console.log(`🟡 Основная кнопка отправки с селектором "${selector}" не найдена или не кликабельна.`);
-        }
-    }
+    // Шаг 2: Обязательный клик по основной кнопке отправки или нажатие Enter
+    console.log("🔍 Ищем основную кнопку отправки ('Send prompt')...");
+    const mainSendButtonSelectors = [
+        'button#composer-submit-button',
+        'button[data-testid="send-button"]',
+        'button[aria-label="Send prompt"]',
+        'button[aria-label*="Send"]',
+        'button[type="submit"]'
+    ];
+    let mainSendButtonClicked = false;
 
-    if (!mainSendButtonClicked) {
-        console.warn("❌ Не удалось найти или кликнуть основную кнопку отправки. Пробуем нажать Enter.");
-        await page.keyboard.press('Enter');
-    }
-    console.log("📤 Запрос отправлен.");
-    // --- КОНЕЦ ИЗМЕНЕННОГО БЛОКА ДЛЯ ОТПРАВКИ ---
+    for (const selector of mainSendButtonSelectors) {
+        try {
+            const buttonElement = await page.waitForSelector(selector, { visible: true, timeout: 5000 });
+            if (buttonElement) {
+                await buttonElement.click();
+                console.log(`✅ Кликнули по основной кнопке отправки используя селектор: ${selector}`);
+                mainSendButtonClicked = true;
+                break;
+            }
+        } catch (err) {
+            console.log(`🟡 Основная кнопка отправки с селектором "${selector}" не найдена или не кликабельна.`);
+        }
+    }
 
-    console.log("⏳ Ожидание ответа от ChatGPT...");
-    try {
-        await page.waitForFunction(() => {
-                const stopGeneratingButton = document.querySelector('button[aria-label*="Stop generating"]');
-                if (stopGeneratingButton) return false;
-                const sendButtonStillActive = document.querySelector('button[data-testid="send-button"]:not(:disabled)'); // Проверяем, не активна ли снова кнопка отправки (старая)
-                if (sendButtonStillActive && document.querySelector('#prompt-textarea')?.value === '') return false; // И поле ввода пусто
-                // Более надежно: ждать появления нового блока ответа или исчезновения индикатора печати
-                const thinkingIndicator = document.querySelector('.result-streaming') || document.querySelector('[class*="typing"]'); // Примерный селектор
-                if(thinkingIndicator) return false;
-                return true; // Считаем, что ответ получен, если нет явных индикаторов генерации
-            },
-            { timeout: 90000 } // Увеличенный таймаут
-        );
-        console.log("✅ Ответ от ChatGPT получен (или генерация остановлена/завершена).");
-    } catch (waitErr) {
-        console.warn("⚠️ Таймаут ожидания специфических индикаторов ответа. Продолжаем. Скриншот: 'before_collecting_links_timeout.png'");
-        await page.screenshot({ path: 'before_collecting_links_timeout.png' });
-    }
+    if (!mainSendButtonClicked) {
+        console.warn("❌ Не удалось найти или кликнуть основную кнопку отправки. Пробуем нажать Enter.");
+        await page.keyboard.press('Enter');
+    }
+    console.log("📤 Запрос отправлен.");
+    // --- КОНЕЦ БЛОКА ДЛЯ ОТПРАВКИ ---
 
-    await new Promise(resolve => setTimeout(resolve, 20000)); // Доп. время на рендеринг
+    console.log("⏳ Ожидание ответа от ChatGPT...");
+    try {
+        await page.waitForFunction(() => {
+                // Проверяем наличие кнопки "Stop generating" (появляется во время генерации)
+                const stopGeneratingButton = document.querySelector('button[aria-label*="Stop generating"]');
+                if (stopGeneratingButton) return false; // Если кнопка есть, генерация еще идет
 
-    console.log("🔗 Сбор ссылок со страницы...");
-    const links = await page.evaluate(() => {
-        const contentArea = document.querySelector('main') || document.body;
-        return Array.from(contentArea.querySelectorAll('a'))
-            .map(anchor => ({
-                href: anchor.href,
-                text: anchor.innerText.trim()
-            }))
-            .filter(l => l.href && (l.href.startsWith('http://') || l.href.startsWith('https://')) && l.text);
-    });
+                // Проверяем, не активна ли снова кнопка отправки И пусто ли поле ввода (может означать завершение)
+                const sendButtonStillActive = document.querySelector('button[data-testid="send-button"]:not(:disabled)');
+                if (sendButtonStillActive && document.querySelector('#prompt-textarea')?.value === '') return true; // Считаем завершенным, если кнопка активна и поле пусто
 
-    console.log(`🔗 Найдено ${links.length} ссылок.`);
-    await page.screenshot({ path: 'result_with_sources.png' });
-    res.json({ query, links });
+                // Ищем индикаторы печати или стриминга результата (более надежный способ)
+                const thinkingIndicator = document.querySelector('.result-streaming') || document.querySelector('[class*="typing"]'); // Примерные селекторы
+                if(thinkingIndicator) return false; // Если индикатор есть, генерация еще идет
 
-  } catch (err) {
-    console.error("❌ Ошибка в основном блоке try:", err.message, err.stack);
-    if (page && !page.isClosed()) {
-        try {
-            const content = await page.content();
-            console.log("🔍 HTML во время ошибки (первые 1000 символов):");
-            console.log(content.substring(0, 1000) + "...");
-            await page.screenshot({ path: 'error_page.png' });
-        } catch (secondaryError) {
-            console.error("❌ Ошибка при создании скриншота или получении контента во время обработки ошибки:", secondaryError.message);
-        }
-    }
-    res.status(500).json({ error: 'Failed to fetch links', details: err.message });
-  } finally {
-    if (browser) {
-      await browser.close();
-      console.log("Браузер закрыт.");
-    }
-  }
+                // Если нет явных индикаторов генерации, считаем, что ответ получен
+                return true;
+            },
+            { timeout: 90000 } // Увеличенный таймаут
+        );
+        console.log("✅ Ответ от ChatGPT получен (или генерация остановлена/завершена).");
+    } catch (waitErr) {
+        console.warn("⚠️ Таймаут ожидания специфических индикаторов ответа. Продолжаем. Возможно, ответ не полностью получен. Скриншот: 'before_collecting_links_timeout.png'");
+        if (page && !page.isClosed()) {
+          await page.screenshot({ path: 'before_collecting_links_timeout.png' });
+        }
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 10000)); // Доп. время на рендеринг после ожидания индикаторов
+
+    console.log("🔗 Сбор ссылок со страницы...");
+    const links = await page.evaluate(() => {
+        // Ищем область контента, где обычно находится ответ
+        const contentArea = document.querySelector('main') || document.body;
+
+        // Собираем все элементы <a> внутри этой области
+        const anchors = Array.from(contentArea.querySelectorAll('a'));
+
+        // Извлекаем только href из каждого элемента <a>
+        const hrefs = anchors.map(anchor => anchor.href);
+
+        // Фильтруем, оставляя только непустые href, начинающиеся с http или https
+        const validLinks = hrefs.filter(href => href && (href.startsWith('http://') || href.startsWith('https://')));
+
+        return validLinks; // Возвращаем массив строк с URL
+    });
+
+    console.log(`🔗 Найдено ${links.length} ссылок.`);
+    if (page && !page.isClosed()) {
+      await page.screenshot({ path: 'result_with_sources.png' });
+    }
+    // Отправляем массив строк в ответе
+    res.json({ query, links });
+
+  } catch (err) {
+    console.error("❌ Ошибка в основном блоке try:", err.message, err.stack);
+    if (page && !page.isClosed()) {
+        try {
+            const content = await page.content();
+            console.log("🔍 HTML во время ошибки (первые 1000 символов):");
+            console.log(content.substring(0, 1000) + "...");
+            await page.screenshot({ path: 'error_page.png' });
+        } catch (secondaryError) {
+            console.error("❌ Ошибка при создании скриншота или получении контента во время обработки ошибки:", secondaryError.message);
+        }
+    }
+    res.status(500).json({ error: 'Failed to fetch links', details: err.message });
+  } finally {
+    if (browser) {
+      await browser.close();
+      console.log("Браузер закрыт.");
+    }
+  }
 });
 
 app.listen(port, () => {
-  console.log(`✅ Сервер запущен на http://localhost:${port}`);
+  console.log(`✅ Сервер запущен на http://localhost:${port}`);
 });
